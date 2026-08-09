@@ -4,6 +4,8 @@ using OllamaChatBoatWithoutRAG.Enums;
 using OllamaChatBoatWithoutRAG.Interfaces;
 using OllamaChatBoatWithoutRAG.Models;
 using OllamaChatBoatWithoutRAG.Options;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
 
 namespace OllamaChatBoatWithoutRAG.Services
 {
@@ -29,13 +31,13 @@ namespace OllamaChatBoatWithoutRAG.Services
         }
 
 
-        public async Task<string> ChatAsync(List<ChatMessage> messages)
+        public async Task<LLMResponse> ChatAsync(LLMRequest messages)
         {
             var request = new OllamaChatRequest
             {
                 Model = _options.Model,
                 Stream = false,
-                Messages = messages
+                Messages = messages.Messages
                 .Select(x =>
                     new OllamaMessage
                     {
@@ -52,7 +54,67 @@ namespace OllamaChatBoatWithoutRAG.Services
 
             var result = await response.Content.ReadFromJsonAsync<OllamaChatResponse>();
 
-            return result?.Message.Content ?? "";
+            //    return result?.Message.Content ?? "";
+
+            return new LLMResponse
+            {
+                Content = result?.Message.Content ?? "",
+                Model = _options.Model,
+                Success = true
+            };
+
         }
+
+        public async IAsyncEnumerable<string> StreamAsync(LLMRequest request,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            var ollamaRequest = new OllamaChatRequest
+            {
+                Model = _options.Model,
+                Stream = true,
+                Messages = request.Messages
+                    .Select(x => new OllamaMessage
+                    {
+                        Role = GetRole(x.Role),
+                        Content = x.Content
+                    })
+                    .ToList()
+            };
+
+            var httpRequest = new HttpRequestMessage(HttpMethod.Post,"/api/chat");
+
+            httpRequest.Content = JsonContent.Create(ollamaRequest);
+
+            var response = await _client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+           
+            response.EnsureSuccessStatusCode();
+            
+            var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            
+            using var reader = new StreamReader(stream);
+            
+            while (!reader.EndOfStream)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            
+                var line = await reader.ReadLineAsync();
+                
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+                
+                var chunk = JsonSerializer.Deserialize<OllamaStreamResponse>(line);
+                
+                if (chunk == null)
+                    continue;
+                
+                if (chunk.Done)
+                    yield break;
+                
+                if (!string.IsNullOrWhiteSpace(chunk.Message.Content))
+                    yield return chunk.Message.Content;
+            }
+        }
+
     }
 }
+

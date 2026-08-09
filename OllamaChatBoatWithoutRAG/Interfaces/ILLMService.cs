@@ -4,6 +4,7 @@ namespace OllamaChatBoatWithoutRAG.Interfaces
 {
     public interface ILLMService
     {
-        Task<string> ChatAsync(List<ChatMessage> messages);
+        Task<LLMResponse> ChatAsync(LLMRequest messages);
+        IAsyncEnumerable<string> StreamAsync(LLMRequest request, CancellationToken cancellationToken = default);
     }
 }

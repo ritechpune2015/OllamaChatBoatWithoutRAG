@@ -6,11 +6,12 @@ using OllamaChatBoatWithoutRAG.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<OllamaOptions>(builder.Configuration.GetSection("Ollama"));
+builder.Services.Configure<AIProviderOptions>(builder.Configuration.GetSection("AIProvider"));
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton<ConversationStore>();
 builder.Services.AddScoped<IConversationService, ConversationService>();
-builder.Services.AddScoped<ChatService>();
+builder.Services.AddScoped<IChatService,ChatService>();
 builder.Services.AddScoped<ILLMFactory, LLMFactory>();
 builder.Services.AddScoped<ILLMService, OllamaService>();
 builder.Services.AddHttpClient<OllamaService>((serviceProvider, client) =>

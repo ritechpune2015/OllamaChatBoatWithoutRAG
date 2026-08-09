@@ -8,8 +8,8 @@ namespace OllamaChatBoatWithoutRAG.Controllers
     public class HomeController : Controller
     {
         private readonly IConversationService _conversationService;
-        private readonly ChatService _chatService;
-        public HomeController(IConversationService conversationService, ChatService chatService)
+        private readonly IChatService _chatService;
+        public HomeController(IConversationService conversationService, IChatService chatService)
         {
             _conversationService = conversationService;
             this._chatService = chatService;
@@ -30,7 +30,7 @@ namespace OllamaChatBoatWithoutRAG.Controllers
             return Ok(
                         new ChatResponse
                         {
-                            Response = response
+                            Response = response.Content
                         });
         }
 
